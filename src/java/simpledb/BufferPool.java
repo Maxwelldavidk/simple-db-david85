@@ -17,9 +17,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class BufferPool {
     /** Bytes per page, including header. */
-    private static final int DEFAULT_PAGE_SIZE = 4096;
+    private static final int DEFAULT_PAGE_SIZE = 4096; // 4KB
 
     private static int pageSize = DEFAULT_PAGE_SIZE;
+
+    // num pages allowed in the buffer pool
+    private final int numPages;
+
+    // this is a map to store the pages in the buffer pool
+    private final ConcurrentHashMap<PageId, Page> pageMap;
     
     /** Default number of pages passed to the constructor. This is used by
     other classes. BufferPool should use the numPages argument to the
@@ -33,6 +39,9 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
+        this.numPages = numPages;
+        this.pageMap = new ConcurrentHashMap<>();
+
     }
     
     public static int getPageSize() {
@@ -67,7 +76,21 @@ public class BufferPool {
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        // check to see if the page is already in the buffer pool, if so return the page
+        Page cachedPage = pageMap.get(pid);
+        if ( cachedPage != null ) {
+            return cachedPage;
+        }
+        // check to see if there is space in the buffer pool
+        if ( pageMap.size() >= numPages ) {
+            throw new DbException("The Buffer Pool is full, cannot add any new pages.");
+        }
+        // get the database file from the catalog
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+        // load page from disk and add to the buffer pool
+        Page newPageFromDisk = dbFile.readPage(pid);
+        pageMap.put(pid, newPageFromDisk);
+        return newPageFromDisk;
     }
 
     /**
