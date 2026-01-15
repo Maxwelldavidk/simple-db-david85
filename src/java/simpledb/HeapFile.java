@@ -14,6 +14,8 @@ import java.util.*;
  * @author Sam Madden
  */
 public class HeapFile implements DbFile {
+    // i thinnk we need open, closed, and next page pointers to manage reading and writing pages
+    
 
     /**
      * Constructs a heap file backed by the specified file.
