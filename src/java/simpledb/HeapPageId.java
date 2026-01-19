@@ -41,7 +41,7 @@ public class HeapPageId implements PageId {
      */
     public int hashCode() {
         // some code goes here
-        return tableId * 31 + pgNo;
+        return Integer.hashCode(tableId * 31 + pgNo);
     }
 
     /**
@@ -56,7 +56,7 @@ public class HeapPageId implements PageId {
     // based on tableId and pgNo, cast the object to HeapPageId. 
     public boolean equals(Object o) {
         // some code goes here
-        if ( o == null || !(o instanceof HeapPageId)) {
+        if (!(o instanceof HeapPageId)) {
             return false;
         }
         HeapPageId other = (HeapPageId) o;

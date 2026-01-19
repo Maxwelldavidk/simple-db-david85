@@ -81,7 +81,7 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        if (!nameToTable.containsKey(name)) {
+        if ((name == null) || (!nameToTable.containsKey(name))) {
             throw new NoSuchElementException();
         }
         Table t = nameToTable.get(name);

@@ -50,6 +50,8 @@ public class TupleDesc implements Serializable {
 
     private static final long serialVersionUID = 1L;
     private List<TDItem> items; // An instance variable to store TDItems
+    private int sizeOfTuple; // An instance variable to store the size of the tuple
+
 
 
     /**
@@ -66,9 +68,10 @@ public class TupleDesc implements Serializable {
     public TupleDesc(Type[] typeAr, String[] fieldAr) {
         // some code goes here
         items = new ArrayList<>();
+        sizeOfTuple = 0;
         for (int i = 0; i < typeAr.length; i++) {
             items.add(new TDItem(typeAr[i], fieldAr[i]));
-            
+            sizeOfTuple += typeAr[i].getLen();
         }
     }
 
@@ -85,6 +88,7 @@ public class TupleDesc implements Serializable {
         items = new ArrayList<>();
         for (int i = 0; i < typeAr.length; i++) {
             items.add(new TDItem(typeAr[i], null));
+            sizeOfTuple += typeAr[i].getLen();
         }
     }
 
@@ -156,11 +160,7 @@ public class TupleDesc implements Serializable {
      */
     public int getSize() {
         // some code goes here
-        int size = 0;
-        for (int i = 0; i < items.size(); i++) {
-            size += items.get(i).fieldType.getLen();
-        }
-        return size;
+        return sizeOfTuple;
     }
 
     /**
@@ -205,25 +205,18 @@ public class TupleDesc implements Serializable {
 
     public boolean equals(Object o) {
         // some code goes here
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-        return false;
-    }
-    
-        TupleDesc that = (TupleDesc) o;
-
-        if (this.numFields() != that.numFields()) {
+        if (!(o instanceof TupleDesc)) {
             return false;
         }
-
+        TupleDesc other = (TupleDesc) o;
+        if (this.numFields() != other.numFields()) {
+            return  false;
+        }
         for (int i = 0; i < this.numFields(); i++) {
-            if (!this.getFieldType(i).equals(that.getFieldType(i))) {
+            if (!this.getFieldType(i).equals(other.getFieldType(i))) {
                 return false;
             }
         }
-
         return true;
     }
 
@@ -250,7 +243,7 @@ public class TupleDesc implements Serializable {
         // some code goes here
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < items.size(); i++) {
-            sb.append(items.get(i).fieldType).append("(").append(items.get(i).fieldName).append(")");
+            sb.append(items.get(i).toString());
             if ( i < items.size() - 1) {
                 sb.append(", ");
             }
