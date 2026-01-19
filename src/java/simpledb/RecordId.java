@@ -52,7 +52,7 @@ public class RecordId implements Serializable {
     @Override
     public boolean equals(Object o) {
         // some code goes here
-        if ( o == null || !(o instanceof RecordId)) {
+        if (!(o instanceof RecordId)) {
             return false;
         }
         RecordId other = (RecordId) o;
@@ -68,7 +68,7 @@ public class RecordId implements Serializable {
     @Override
     public int hashCode() {
         // some code goes here
-        return pid.hashCode() * 31 + tupleno;
+        return Integer.hashCode(pid.hashCode() * 31 + tupleno);
     }
 
 }
