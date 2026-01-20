@@ -81,6 +81,7 @@ public class SeqScan implements OpIterator {
         this(tid, tableId, Database.getCatalog().getTableName(tableId));
     }
 
+    // Opens the iterator using the transaction id and table id to get the DbFile
     public void open() throws DbException, TransactionAbortedException {
         // some code goes here
         DbFile dbFile = Database.getCatalog().getDatabaseFile(tableid);

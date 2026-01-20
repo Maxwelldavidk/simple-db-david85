@@ -31,6 +31,7 @@ public class Catalog {
      * Constructor.
      * Creates a new, empty catalog.
      */
+    // initilaize two ConcurrentHashmaps to store name and id of a table to its Table object
     public Catalog() {
         // some code goes here
         nameToTable = new ConcurrentHashMap<>();
@@ -46,6 +47,7 @@ public class Catalog {
      * conflict exists, use the last table to be added as the table for a given name.
      * @param pkeyField the name of the primary key field
      */
+    // Add a new table to the catalog, handling name conflicts by replacing the old table
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
         if (name == null) {

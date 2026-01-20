@@ -49,6 +49,8 @@ public class RecordId implements Serializable {
      * 
      * @return True if this and o represent the same tuple
      */
+
+    // the object needed to be cast to recordId becasue we are comparing two RecordId objects
     @Override
     public boolean equals(Object o) {
         // some code goes here
