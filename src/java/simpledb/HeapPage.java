@@ -299,29 +299,14 @@ public class HeapPage implements Page {
     /**
      * Returns true if associated slot on this page is filled.
      */
-    // each page has a header, which is an array of bytes.
-    // each bit in the header indicates whether the corresponding slot is used.
-    // to check if slot i is used, we find the byte in the header that contains the bit for slot i,
-    // then we check the specific bit within that byte
-    // we do this because i is the slot index, and each byte has 8 bits
-    // this means that the byte index is i / 8, and the bit offset within that byte is i % 8
-    // if we want the tuple at index 12 then we would look at byte 1 (12 / 8 = 1) and bit 4 (12 % 8 = 4) of that byte
-    // we then use a bitwise AND operation to check if that specific bit is set (1) or not (0)
-    // we do that by shifting 1 to the left by the bit offset and ANDing it with the header byte
-    // we shift by 1 because we want to create a mask that has a 1 in the position of the bit we are interested in
-    // we do that because we want to isolate that bit and see if it is set or not
-    // if the result of the AND operation is not 0, then the bit is set, meaning the slot is used    
-
-    // to sum everything up in a simple way:
-    // 1. find the byte in the header that contains the bit for slot i (i / 8)
-    // 2. find the bit offset within that byte (i % 8)
-    // 3. use a bitwise AND operation to check if that specific bit is set (1) or not (0)   
+    // Each page has a header and we can determine if a slot is used by checking the corresponding bit in the header.
+    // We calculated the byte index and bit offset for the slot and use a bitwise AND operation to check if the bit is set 
 
     public boolean isSlotUsed(int i) {
         // some code goes here
         int byteIndex = i / 8;
         int bitOffset = i % 8;
-        int mask = 1 << bitOffset; // shift 1 to the left by (7 - bitOffset) to create the mask
+        int mask = 1 << bitOffset; 
         return (header[byteIndex] & mask) != 0;
     }
 
@@ -337,24 +322,8 @@ public class HeapPage implements Page {
      * @return an iterator over all tuples on this page (calling remove on this iterator throws an UnsupportedOperationException)
      * (note that this iterator shouldn't return tuples in empty slots!)
      */
-    // We need to implement an iterator that goes through the tuples array and only returns the tuples in used slots.
-    // We can do this by creating an anonymous inner class that implements the Iterator<Tuple> interface.
-    // The hasNext() method will check if there are more used slots, and the next() method will return the next tuple in a used slot.
-    // We will maintain a current index to keep track of our position in the tuples array.
-    // When hasNext() is called, we will advance the current index until we find a used slot or reach the end of the array.
-    // When next() is called, we will return the tuple at the current index and then advance the index to the next position.
-    // If there are no more used slots, hasNext() will return false and next() will throw a NoSuchElementException.
-    // The remove() method will throw an UnsupportedOperationException as specified.
-    // This way, we can iterate over only the valid tuples in the page.
-    // This implementation ensures that we only return tuples that are actually present in the page, skipping over any empty slots.
-    // This is important for efficiency and correctness when working with database pages.
-    // We also need to handle the case where there are no used slots gracefully.
-    // Overall, this iterator provides a clean and efficient way to access the tuples stored in a HeapPage.
-    // This is crucial for database operations that need to read or manipulate the data stored in these pages.
-    // By implementing this iterator, we facilitate easy traversal of the tuples while adhering to the constraints of the page structure.
-    // This design follows the principles of encapsulation and abstraction, allowing users to interact with the data without needing to understand the underlying storage details.
-    // This iterator will be used in various database operations, such as query execution and data retrieval.
-    // It is a fundamental component of the database system's architecture.
+    // Returns an iterator over the tuples in this page, skipping empty slots
+    // The iterator checks each slot to see if it is used and only returns the tuples in used slots
     public Iterator<Tuple> iterator() {
         // some code goes here
         return new Iterator<Tuple>() {

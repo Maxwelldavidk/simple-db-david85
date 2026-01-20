@@ -95,7 +95,7 @@ public class HeapFile implements DbFile {
      */
     public int getId() {
         // some code goes here
-        return file.getAbsoluteFile().hashCode();
+        return file.getAbsoluteFile().hashCode(); 
     }
 
     /**
@@ -109,6 +109,9 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
+    // we use RandomAccessFile to read the page from disk at the correct offset
+    // and then create a new HeapPage using the data read from the file
+    // throws an IllegalArgumentException if there is an error reading the page
     public Page readPage(PageId pid) {
         // some code goes here
         int pageSize = BufferPool.getPageSize();
