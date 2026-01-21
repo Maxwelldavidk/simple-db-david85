@@ -49,7 +49,7 @@ public class TupleDesc implements Serializable {
     }
 
     private static final long serialVersionUID = 1L;
-    private List<TDItem> items; // An instance variable to store TDItems
+    private final List<TDItem> items; // An instance variable to store TDItems
     private int sizeOfTuple; // An instance variable to store the size of the tuple
 
 

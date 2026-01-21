@@ -76,21 +76,20 @@ public class BufferPool {
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        // check to see if the page is already in the buffer pool, if so return the page
-        Page cachedPage = pageMap.get(pid);
-        if ( cachedPage != null ) {
-            return cachedPage;
+        // if the page is not in the buffer pool
+        if (!pageMap.containsKey(pid)) {
+            // check if the buffer pool is full and if so throw exception
+            if (pageMap.size() >= numPages) {
+                throw new DbException("Buffer pool is full");
+            }
+            // get the database file from the catalog
+            DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            // load page from disk and add to the buffer pool
+            Page newPage = file.readPage(pid);
+            pageMap.put(pid, newPage);
         }
-        // check to see if there is space in the buffer pool
-        if ( pageMap.size() >= numPages ) {
-            throw new DbException("The Buffer Pool is full, cannot add any new pages.");
-        }
-        // get the database file from the catalog
-        DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
-        // load page from disk and add to the buffer pool
-        Page newPageFromDisk = dbFile.readPage(pid);
-        pageMap.put(pid, newPageFromDisk);
-        return newPageFromDisk;
+        // Now it is in the buffer pool, return the page
+        return pageMap.get(pid);
     }
 
     /**

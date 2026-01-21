@@ -13,7 +13,7 @@ public class Tuple implements Serializable {
 
     private static final long serialVersionUID = 1L;
     private TupleDesc td;
-    private Field[] fields;
+    private final Field[] fields;
     private RecordId rid;
 
 
