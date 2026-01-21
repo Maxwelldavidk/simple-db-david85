@@ -10,9 +10,10 @@ import java.util.*;
 public class SeqScan implements OpIterator {
 
     private static final long serialVersionUID = 1L;
-    private TransactionId tid;
+    private final TransactionId tid;
     private int tableid;
     private String tableAlias;
+    private boolean isOpen;
     private DbFileIterator dbFileIterator;
     
 
@@ -37,7 +38,7 @@ public class SeqScan implements OpIterator {
         this.tid = tid;
         this.tableid = tableid;
         this.tableAlias = tableAlias;
-        this.dbFileIterator = null;
+        this.isOpen = false;
     }
 
     /**
@@ -72,9 +73,16 @@ public class SeqScan implements OpIterator {
      */
     public void reset(int tableid, String tableAlias) {
         // some code goes here
+        if (isOpen) {
+            close();
+        }
         this.tableid = tableid;
         this.tableAlias = tableAlias;
-        this.dbFileIterator = null;
+        try {
+            open();
+        } catch (Exception ignored) {
+
+        }
     }
 
     public SeqScan(TransactionId tid, int tableId) {
@@ -84,9 +92,14 @@ public class SeqScan implements OpIterator {
     // Opens the iterator using the transaction id and table id to get the DbFile
     public void open() throws DbException, TransactionAbortedException {
         // some code goes here
+        // If it is already open, throw exception
+        if (isOpen) {
+            throw new IllegalStateException("The operator is open");
+        }
         DbFile dbFile = Database.getCatalog().getDatabaseFile(tableid);
         dbFileIterator = dbFile.iterator(tid);
         dbFileIterator.open();
+        isOpen = true;
     }
 
     /**
@@ -111,23 +124,32 @@ public class SeqScan implements OpIterator {
         for (int i = 0; i < numFields; i++) {
             types[i] = tupleDesc.getFieldType(i);
             String fieldName = tupleDesc.getFieldName(i);
-            names[i] = tableAlias + "." + fieldName;
+            String prefix = (tableAlias == null) ? "null" : tableAlias;
+            names[i] = prefix + "." + (fieldName == null ? "null" : fieldName);
         }
         return new TupleDesc(types, names);
     }
 
     public boolean hasNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        if (dbFileIterator == null)
-            return false;
+        // if the operator isn't open, throw exception
+        if (!isOpen) {
+            throw new IllegalStateException("The operator is not open!");
+        }
         return dbFileIterator.hasNext();
     }
 
     public Tuple next() throws NoSuchElementException,
             TransactionAbortedException, DbException {
         // some code goes here
-        if (dbFileIterator == null)
-            throw new NoSuchElementException("The iterator is not open yet");
+        // if the operator isn't open, throw exception
+        if (!isOpen) {
+            throw new IllegalStateException("The operator is not open!");
+        }
+        // if there is no more tuples, throw exception
+        if (!hasNext()) {
+            throw new NoSuchElementException("No more tuples");
+        }
         return dbFileIterator.next();
     }
 
@@ -136,15 +158,16 @@ public class SeqScan implements OpIterator {
         if (dbFileIterator != null) {
             dbFileIterator.close();
         }
-        dbFileIterator = null;
-
+        isOpen = false;
     }
 
     public void rewind() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
-        if (dbFileIterator == null)
-            throw new NoSuchElementException("The iterator is not open yet");
+        // if the operator isn't open, throw exception
+        if (!isOpen) {
+            throw new IllegalStateException("The operator is not open!");
+        }
         dbFileIterator.rewind();
     }
 }

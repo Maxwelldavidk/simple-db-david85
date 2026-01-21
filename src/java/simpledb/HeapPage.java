@@ -304,6 +304,9 @@ public class HeapPage implements Page {
 
     public boolean isSlotUsed(int i) {
         // some code goes here
+        if (i >= numSlots) {
+            throw new IllegalArgumentException("Slot is out of bound!");
+        }
         int byteIndex = i / 8;
         int bitOffset = i % 8;
         int mask = 1 << bitOffset; 

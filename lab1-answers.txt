@@ -1,17 +1,33 @@
-Lab 1 is about builing SimpleDb's low level storage layer. We store tupples on disk in a fixed length page format and read them back through the buffer pool.
-SimpleDb scans pages instead of rows and each page contains slots that can be empty or have a tuple. 
-Ounce pages can be loaded from disk into the buffer pool, we can use sequintial scanner to iterate through the table and return tuples.
+Lab 1 is about building SimpleDB’s low-level storage layer. We store tuples on disk in a fixed-length page format and read them back through the buffer pool. The focus of the lab is understanding how tuples are laid out on disk, how pages are structured, and how higher-level operators access data through these abstractions.
 
-Tuple stores am arrayList of field objects and keeps a record id that points to where the tuples live on disc, which page and which slot in the page. 
-TupleDesc defines the schema of each tuple. How many fields, type of field, and field names. It also has the fixed tuple size in bytes. We used that size in HeapPage to find how many tuples slot in each page and the size of the header.
-Catalog is bassically the db directory. It maps table names and table id's to the right DbFile and tupleDesc, so operators can look up what file to read and how to interpret the bytes as tuples.
-Buffer pool is what we use ase our fast access memory cache. All the operator will request pages through the buffer pool. So getPage() either returns a cached page or reads it from DbFile and stores it.
-HeapPageId is a unique label for a page in a heap file. It stores table id and page number. The buffer pool uses this to know what page to grab and cache.
-RecordId is what we use to find the each tuple on disk. It stores pageId and the tulpes slot number. We use this to find the tuples on a page. 
-HeapPage is a fixed size page that contains a header and a bunch of tuple slots. The header is a bitmap that says which slots are used and when we read the page from disk. HeapPage uses that to skip empty slots and only build Tuple objects for the used ones.
-HeapFile is the on disk file for a table. It reads a pages bytes from disk and it has an iterator that scans pages by requesting them through the buffer pool, so all higher level operators can pull tuples out one at a time.
-SeqScan is what we use for a full table scan. It opens a iterator over the tables HeapFile using the catalog and then keeps asking for the next tuple until the table is done. 
+SimpleDB scans pages instead of rows, and each page contains slots that can either be empty or store a tuple. Pages are always a fixed size, which simplifies disk access and allows page offsets to be computed directly from page numbers.
 
-The design decisions were mostly to follow the starter API exactly and keep the implementations simple so they match the spec and tests. A choice we made was implementing isSlotUsed with bit math, byte index + bit mask, so the header bitmap correctly controls which tuple slots on the page.
+Once pages are loaded from disk into the buffer pool, we can use a sequential scan to iterate through a table and return tuples. This design ensures that all data access goes through the buffer pool rather than directly hitting disk.
 
-An example of a unit test. Build a HeapPage where the header bitmap has only a few bits flipped so that only some slots are marked as used with fake tuple data. Then iterate over the page and check that iterator returns exactly the tuples from the used slots and skips the empty slots.
+A Tuple stores an Array of Field objects and keeps a RecordId that points to where the tuple lives on disk, specifically which page and which slot within that page. The RecordId is used to uniquely identify that tuple’s physical location.
+
+A TupleDesc stores an ArrayList of TDItem objects and defines the schema of each tuple, including the number of fields, their types, and their names. It also computes the fixed tuple size in bytes, which is used by HeapPage to determine how many tuple slots fit in a page and how large the header bitmap needs to be.
+
+The Catalog is basically the database directory. It maps table names and table IDs to the correct DbFile and TupleDesc, allowing operators to look up what file to read from and how to interpret raw bytes as tuples. Internally, this is implemented using thread-safe maps to support concurrent access.
+
+The BufferPool acts as a fast in-memory cache for pages. All operators request pages through the buffer pool, so getPage() either returns a cached page or reads it from the corresponding DbFile and stores it in memory. For Lab 1, eviction and locking are intentionally omitted, and the buffer pool throws an exception if it becomes full.
+
+HeapPageId is a unique identifier for a page in a heap file. It stores the table ID and page number, which allows the buffer pool to uniquely identify, cache, and retrieve pages.
+
+RecordId is used to locate each tuple on disk. It stores a PageId and a tuple slot number, which together precisely identify where the tuple is stored within a page.
+
+A HeapPage is a fixed-size page that contains a header and multiple tuple slots. The header is a bitmap that tracks which slots are in use, and when reading a page from disk, the bitmap is used to skip empty slots and only construct Tuple objects for occupied ones.
+
+HeapFile represents the on-disk file for a table. It reads page-sized chunks of bytes from disk and converts them into HeapPage objects, and its iterator scans pages sequentially by requesting them through the buffer pool rather than accessing disk directly.
+
+SeqScan is used for a full table scan. It opens an iterator over the table’s HeapFile using the catalog and repeatedly returns the next tuple until all pages and tuples in the table have been consumed.
+
+The design decisions were mostly to follow the starter API exactly and keep implementations simple so they match the specification and provided tests. One specific choice was implementing isSlotUsed using bit-level operations (byte index and bit mask) to correctly interpret the header bitmap and control which tuple slots are considered occupied.
+
+An example of a unit test that could be added is constructing a HeapPage where the header bitmap has only a few bits flipped, so that only some slots are marked as used with fake tuple data. Then, iterate over the page and check that the iterator returns exactly the tuples from the used slots while skipping the empty slots.
+
+Another example is constructing a HeapPage with a small number of tuples and testing the isSlotUsed method for a valid slot, an empty slot, and a slot number greater than or equal to numSlots. The test should assert that the method correctly returns true or false for valid slots and throws an IllegalArgumentException when the slot number is out of bounds. This ensures that invalid slot accesses are safely handled and prevents array index errors.
+
+We did not change the provided API, as the starter interfaces were sufficient to implement the required functionality for Lab 1. Several methods related to locking, eviction, dirty pages, and tuple insertion or deletion were intentionally left unimplemented, since they are not required until later labs.
+
+Overall, this lab was helpful in understanding how higher-level database operations are built on top of low-level storage abstractions. It made the relationship between disk layout, memory caching, and tuple iteration much clearer and provided a solid foundation for later labs involving concurrency and recovery.
