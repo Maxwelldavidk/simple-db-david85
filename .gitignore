@@ -1,6 +1,9 @@
 .DS_Store
 src/.DS_Store
 .idea/
+.settings/
+.vscode/
+vscode/
 bin/
 dist/
 out/
@@ -8,9 +11,5 @@ out/
 *.dat
 *.schema
 *.db
-.settings/
 .classpath
 .project
-vscode/
-.vscode/
-*.log
