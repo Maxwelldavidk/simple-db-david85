@@ -1,9 +1,6 @@
 package simpledb;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Knows how to compute some aggregate over a set of StringFields.
@@ -11,13 +8,12 @@ import java.util.Map;
 public class StringAggregator implements Aggregator {
 
     private static final long serialVersionUID = 1L;
-    private int gbfield;
-    private Type gbfieldtype;
-    private int afield;
-    private Op what;
-    private final Map<Field, Integer> valuesOfGroup = new HashMap<>();
-
-
+    private final int gbfield;
+    private final Type gbfieldtype;
+    private final int afield;
+    private final Op what;
+    Map<Field, Integer> groupedBY;
+    private TupleDesc td;
 
     /**
      * Aggregate constructor
@@ -30,14 +26,12 @@ public class StringAggregator implements Aggregator {
 
     public StringAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
         // some code goes here
-        this.afield = afield;
         this.gbfield = gbfield;
         this.gbfieldtype = gbfieldtype;
+        this.afield = afield;
         this.what = what;
-
-        if (what != Op.COUNT) {
-            throw new IllegalArgumentException("StringAggregator will only support COUNT");
-        }
+        this.groupedBY = new HashMap<>();
+        td = null;
     }
 
     /**
@@ -46,20 +40,32 @@ public class StringAggregator implements Aggregator {
      */
     public void mergeTupleIntoGroup(Tuple tup) {
         // some code goes here
-        Field key;
-        if (gbfield == NO_GROUPING) {
-            key = null;
-        } else {
-            key = tup.getField(gbfield);
-        }
+        if (td == null) {
+            Type[] tps = (gbfield == Aggregator.NO_GROUPING) ?
+                    new Type[]{Type.INT_TYPE} :
+                    new Type[]{gbfieldtype, Type.INT_TYPE};
 
-        Integer currentCount = valuesOfGroup.get(key);
-        if (currentCount == null) {
-            currentCount = 0;
+            String aggName = what.toString() + "(" + tup.getTupleDesc().getFieldName(afield) + ")";
+            String[] names = (gbfield == Aggregator.NO_GROUPING) ?
+                    new String[]{aggName} :
+                    new String[]{tup.getTupleDesc().getFieldName(gbfield), aggName};
+            td = new TupleDesc(tps,names);
         }
-        currentCount = currentCount + 1;
-        valuesOfGroup.put(key, currentCount);
-       
+        if (what != Aggregator.Op.COUNT) {
+            return;
+        }
+        Field key = (gbfield == Aggregator.NO_GROUPING) ? null : tup.getField(gbfield);
+
+        // Get the value to aggregate
+        String newValue = ((StringField) tup.getField(afield)).getValue();
+
+        // If it's the first time we see this group, initialize it
+        if (!groupedBY.containsKey(key)) {
+            groupedBY.put(key, 1);
+            return;
+        }
+        // Update the existing value based on the operation
+        groupedBY.put(key, groupedBY.get(key) + 1);
     }
 
     /**
@@ -72,33 +78,69 @@ public class StringAggregator implements Aggregator {
      */
     public OpIterator iterator() {
         // some code goes here
-        TupleDesc td;
-        if (gbfield == NO_GROUPING) {
-            Type[] types = new Type[1];
-            types[0] = Type.INT_TYPE;
-            td = new TupleDesc(types);
-        } else {
-            Type[] types = new Type[2];
-            types[0] = gbfieldtype;
-            types[1] = Type.INT_TYPE;
-            td = new TupleDesc(types);
-        }
-        List<Tuple> output = new ArrayList<Tuple>();
+        return new OpIterator() {
+            private Iterator<Tuple> iterator;
+            List<Tuple> results ;
+            private boolean isOpen;
 
-        for (Field key : valuesOfGroup.keySet()) {
-            int count = valuesOfGroup.get(key);
-            Tuple returnTuple = new Tuple(td);
+            @Override
+            public void open() throws DbException, TransactionAbortedException {
+                isOpen = true;
+                results = new ArrayList<>();
+                for (Field key : groupedBY.keySet()) {
+                    Tuple t = new Tuple(td);
+                    int finalVal = groupedBY.get(key);
 
-            if (gbfield == NO_GROUPING) {
-                returnTuple.setField(0, new IntField(count));
-            } else {
-                returnTuple.setField(0, key);
-                returnTuple.setField(1, new IntField(count));
+                    if (gbfield == Aggregator.NO_GROUPING) {
+                        // Only one column: the result
+                        t.setField(0, new IntField(finalVal));
+                    } else {
+                        // Two columns: the key, then the result
+                        t.setField(0, key);
+                        t.setField(1, new IntField(finalVal));
+                    }
+                    results.add(t);
+                }
+                iterator = results.iterator();
+
             }
-            output.add(returnTuple);
-        }
 
+            @Override
+            public boolean hasNext() throws DbException, TransactionAbortedException {
+                if (!isOpen) {
+                    throw new IllegalStateException("The operator is not open");
+                }
+                return iterator.hasNext();
+            }
 
-        return new TupleIterator(td, output);
+            @Override
+            public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
+                if (!isOpen) {
+                    throw new IllegalStateException("The operator is not open");
+                }
+                return iterator.next();
+            }
+
+            @Override
+            public void rewind() throws DbException, TransactionAbortedException {
+                if (!isOpen) {
+                    throw new IllegalStateException("The operator is not open");
+                }
+                iterator = results.iterator();
+            }
+
+            @Override
+            public TupleDesc getTupleDesc() {
+                return  td;
+            }
+
+            @Override
+            public void close() {
+                isOpen = false;
+                results = null;
+                iterator = null;
+            }
+        };
     }
+
 }

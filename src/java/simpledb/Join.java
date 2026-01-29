@@ -11,7 +11,8 @@ public class Join extends Operator {
     private JoinPredicate p;
     private OpIterator child1;
     private OpIterator child2;
-    private Tuple t1 = null;
+    private Tuple t1;
+    private TupleDesc td;
 
     /**
      * Constructor. Accepts two children to join and the predicate to join them
@@ -29,6 +30,7 @@ public class Join extends Operator {
         this.p = p;
         this.child1 = child1;
         this.child2 = child2;
+        td = TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public JoinPredicate getJoinPredicate() {
@@ -62,13 +64,14 @@ public class Join extends Operator {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return TupleDesc.merge(this.child1.getTupleDesc(), this.child2.getTupleDesc());
+        return td;
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
         super.open();
+        this.t1 = null;
         this.child1.open();
         this.child2.open();
     }
@@ -76,6 +79,7 @@ public class Join extends Operator {
     public void close() {
         // some code goes here
         super.close();
+        this.t1 = null;
         this.child1.close();
         this.child2.close();
     }
@@ -116,7 +120,7 @@ public class Join extends Operator {
             while(this.child2.hasNext()) {
                 Tuple t2 = this.child2.next();
                 if(this.p.filter(t1, t2)) {
-                    Tuple joinedTuple = new Tuple(this.getTupleDesc());
+                    Tuple joinedTuple = new Tuple(this.td);
                     int index = 0;
                     for (int i = 0; i < t1.getTupleDesc().numFields(); i++) {
                         joinedTuple.setField(index, t1.getField(i));
@@ -148,8 +152,10 @@ public class Join extends Operator {
     @Override
     public void setChildren(OpIterator[] children) {
         // some code goes here
-        this.child1 = children[0];
-        this.child2 = children[1];
+        if (child1 != children[0] && child2 != children[1]) {
+            child1 = children[0];
+            child2 = children[1];
+        }
     }
 
 }
