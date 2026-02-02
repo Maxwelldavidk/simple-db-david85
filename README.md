@@ -322,12 +322,12 @@ The parser is relatively full featured (including support for SELECTs, INSERTs, 
 
 #### Exercise 7
 
-We have built a SimpleDB-encoded version of the DBLP database; the needed files are located at [http://www.cs.washington.edu/education/courses/cse444/17wi/labs/lab2/dblp_data.tar.gz](http://www.cs.washington.edu/education/courses/cse444/17wi/labs/lab2/dblp_data.tar.gz).
+We have built a SimpleDB-encoded version of the DBLP database; the needed files are located at [https://courses.cs.washington.edu/courses/cse444/17wi/labs/lab2/dblp_data.tar.gz](https://courses.cs.washington.edu/courses/cse444/17wi/labs/lab2/dblp_data.tar.gz).
 
 You should download the file and unpack it. It will create four files in the `dblp_data` directory. Move them into your repository directory. The following commands will accomplish this, if you execute them at the root of your repository:
 
 ```sh
-$ wget http://www.cs.washington.edu/education/courses/cse444/17wi/labs/lab2/dblp_data.tar.gz
+$ wget https://courses.cs.washington.edu/courses/cse444/17wi/labs/lab2/dblp_data.tar.gz
 $ tar xvzf dblp_data.tar.gz
 $ mv dblp_data/* .
 $ rm -r dblp_data.tar.gz dblp_data
