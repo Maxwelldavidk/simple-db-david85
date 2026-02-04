@@ -139,7 +139,7 @@ Now that you have written all of the `HeapFile` machinery to add and remove tupl
 For plans that implement `insert` and `delete` queries, the top-most operator is a special `Insert` or `Delete` operator that modifies the pages on disk. These operators return the number of affected tuples. This is implemented by returning a single tuple with one integer field, containing the count of affected records.
 
 *   `Insert`: This operator adds the tuples it reads from its child operator to the `tableid` specified in its constructor. It should use the `BufferPool.insertTuple()` method to do this.
-*   `Delete`: This operator deletes the tuples it reads from its child operator from the `tableid` specified in its constructor. It should use the `BufferPool.deleteTuple()` method to do this.
+*   `Delete`: This operator deletes the tuples it reads from the child operator specified in its constructor. It should use the `BufferPool.deleteTuple()` method to do this.
 
 #### Exercise 4. Implement the skeleton methods in:
 
