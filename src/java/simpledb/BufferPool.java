@@ -2,6 +2,8 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -17,20 +19,18 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class BufferPool {
     /** Bytes per page, including header. */
-    private static final int DEFAULT_PAGE_SIZE = 4096; // 4KB
+    private static final int DEFAULT_PAGE_SIZE = 4096;
 
     private static int pageSize = DEFAULT_PAGE_SIZE;
-
-    // num pages allowed in the buffer pool
-    private final int numPages;
-
-    // this is a map to store the pages in the buffer pool
-    private final ConcurrentHashMap<PageId, Page> pageMap;
     
     /** Default number of pages passed to the constructor. This is used by
     other classes. BufferPool should use the numPages argument to the
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
+
+    private final Map<PageId, Page> pages;
+    // private Map<TransactionId, PageId> locks;
+    private final int numOfPages;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -39,9 +39,9 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
-        this.numPages = numPages;
-        this.pageMap = new ConcurrentHashMap<>();
-
+        numOfPages = numPages;
+        // locks = new ConcurrentHashMap<TransactionId, PageId>();
+        pages = new ConcurrentHashMap<PageId, Page>();
     }
     
     public static int getPageSize() {
@@ -76,20 +76,15 @@ public class BufferPool {
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        // if the page is not in the buffer pool
-        if (!pageMap.containsKey(pid)) {
-            // check if the buffer pool is full and if so throw exception
-            if (pageMap.size() >= numPages) {
-                throw new DbException("Buffer pool is full");
+        if (!pages.containsKey(pid)) {
+            if (pages.size() >= numOfPages) {
+                evictPage();
             }
-            // get the database file from the catalog
             DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
-            // load page from disk and add to the buffer pool
             Page newPage = file.readPage(pid);
-            pageMap.put(pid, newPage);
+            pages.put(pid, newPage);
         }
-        // Now it is in the buffer pool, return the page
-        return pageMap.get(pid);
+        return pages.get(pid);
     }
 
     /**
@@ -155,6 +150,14 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+
+        HeapFile f = (HeapFile) Database.getCatalog().getDatabaseFile(tableId);
+        ArrayList<Page> dirty = f.insertTuple(tid, t);
+
+        for (Page p : dirty) {
+            p.markDirty(true, tid);
+            pages.put(p.getId(), p);
+        }
     }
 
     /**
@@ -174,6 +177,13 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        HeapFile file = (HeapFile)  Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        ArrayList<Page> dirty = file.deleteTuple(tid, t);
+        for (Page p : dirty) {
+            p.markDirty(true, tid);
+            pages.put(p.getId(), p);
+        }
+
     }
 
     /**
@@ -184,7 +194,9 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-
+        for (PageId p : pages.keySet()) {
+            flushPage(p);
+        }
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -198,6 +210,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        pages.remove(pid);
     }
 
     /**
@@ -207,6 +220,12 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        Page p = pages.get(pid);
+        if (p.isDirty() != null) {
+            HeapFile file = (HeapFile)  Database.getCatalog().getDatabaseFile(pid.getTableId());
+            p.markDirty(false, null);
+            file.writePage(p);
+        }
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -223,6 +242,30 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        if (pages.isEmpty()) {
+            throw new DbException("Cannot evict from empty buffer pool");
+        }
+        // Try to find first non-dirty page
+        PageId evictId = null;
+        for (Page page : pages.values()) {
+            if (page.isDirty() == null) {
+                evictId = page.getId();
+                break;
+            }
+        }
+        // If all pages are dirty, just pick the first one
+        if (evictId == null) {
+            evictId = pages.keySet().iterator().next();
+        }
+        // Flush the page to disk (handles dirty pages)
+        try {
+            flushPage(evictId);
+        } catch (IOException e) {
+            throw new DbException("Error flushing page during eviction: " + e.getMessage());
+        }
+
+        // Remove the page from buffer pool
+        discardPage(evictId);
     }
 
 }

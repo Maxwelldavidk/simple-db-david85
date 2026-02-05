@@ -1,0 +1,39 @@
+Lab 2 is about turning SimpleDB into a working query engine. Instead of just scanning tables, we can now run relational algebra plans that filter rows, join tables, and compute aggregates.
+The lab focuses on how query operators pull tuples from child operators, how grouping state is tracked for aggregates, how tuple are inserted and deleted from heap files and how the buffer pool stays within a fixedd memory limit by evicting pages.
+
+Filter and Join: Each operator has children and the operator produces output tuples by repeate asking its children for tuples and then applying its logic. Filter returns only the tuples that satisfy the Predicate. Join combines tuples from two children when a JoinPredicate says they match.
+
+Predicate: Stores which field to look at, which comparison to apply, and what constant value to compare against. Filter uses that to test each incoming tuple and to either skip it or return it. This keeps the filtering logic separate from the scan and make it reusable anywhere in a query plan.
+
+JoinPredicate: stores the comparison operator plus the field index from the left tuple and the field index from the right tuple. Join uses it to test whether two tuples match. My Join implementation is the nested loop join. It keeps one tuple from the left side fixed and scan through the entire right side looking for matches. 
+When the right side is exhausted it rewinds the right iterator, advances the left tuple, and repeats. When a match is found the output tuple is built by concatenating the fields from the left tuple followed by the fields from the right tuple.
+
+IntegerAggregator: Maintains a hash map with keys from the group field. For each group, it tracks the values needed to compute COUNT, SUM, AVG, MIN, and MAX. When iteration begins over the results, it turns each group entry into an output tuple containing the group value and the aggregate value.
+
+StringAggregator: Only supports COUNTT. It also uses a hash map with keys from the group field, it just increments a counter for each tuple merged into the group.
+
+Aggreate: It chooses the correct aggregator based on the type of the aggregate field, reads all tuples from its child, merges them into the aggregator, and the results are an iterator.
+
+Tuple insertion and deletion: These are implemented by modifying heap pages. Each tuple has a RecordId that points to the exact page and slot where it lives. Deleting a tuple means locating the correct page, verifying the tuple is present, and clearing the slot so the header bitmap marks it unused. 
+Inserting a tuple means finding a page with an empty slot, writing the tuple there, and updating the tuple’s RecordId. If no existing page has space, a new empty page is appended to the heap file and the tuple is inserted there.
+
+Insert and Delete are operators that make these changes through the BufferPool. They read tuples from their child operator and call the BufferPool methods to make insertions or deletions. Both operators return a single output tuple containing the number of tuples affected.
+
+The BufferPool now enforces a maximum number of cached pages. When a page is requested and the cache is full, the buffer pool evicts a page to make room. My eviction policy is simple, it tries to evict a clean page first to avoid extra disk writes, and if all pages are dirty it flushes one dirty page and then evicts it. This keeps memory bounded while ensuring dirty pages are not lost.
+
+flushPage writes a dirty page back to disk and marks it clean. flushAllPages iterates through the cached pages and flushes any dirty ones. Eviction is the only place where pages are actually removed from cache.
+
+Exercise 7 runtimes:
+Query 1 completed and printed the runtime of 0.15 seconds on my run.
+Query 2 did not finish within 5 minutes so I stopped it.
+Query 3 did not finish within 5 minutes so I stopped it.
+
+Design decisions
+We used the nested-loops join because it is the simplest join. The tradeoff is performance on multi way joins, especially on the DBLP queries, where nested loops can be extremelyy slow.
+
+For eviction, I prioritized correctness and simplicity. Choosing a clean page first avoids unnecessary flushes, and flushing before evicting a dirty page ensures changes are not lost. 
+Example unit test
+A good additional test would run a Join to completion, then call rewind on the Join operator, and confirm that iterating again produces the exact same set of output tuples in the same order. This can catch bugs where the join does not properly rewind the inner iterator or does not reset its saved state.
+
+API changes
+I did not change the provided API. 
