@@ -31,6 +31,9 @@ public class BufferPool {
     private final Map<PageId, Page> pages;
     // private Map<TransactionId, PageId> locks;
     private final int numOfPages;
+    private final LockManager lockManager;
+
+    
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -42,6 +45,7 @@ public class BufferPool {
         numOfPages = numPages;
         // locks = new ConcurrentHashMap<TransactionId, PageId>();
         pages = new ConcurrentHashMap<PageId, Page>();
+        lockManager = new LockManager();
     }
     
     public static int getPageSize() {
@@ -76,6 +80,8 @@ public class BufferPool {
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
+        lockManager.getLock(tid, pid, perm);
+
         if (!pages.containsKey(pid)) {
             if (pages.size() >= numOfPages) {
                 evictPage();
@@ -99,6 +105,7 @@ public class BufferPool {
     public  void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+        lockManager.releaseLock(tid, pid);
     }
 
     /**
@@ -109,13 +116,14 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        lockManager.releaseAllLocks(tid);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+        return lockManager.holdingLock(tid, p);
     }
 
     /**
@@ -129,6 +137,7 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        lockManager.releaseAllLocks(tid);
     }
 
     /**
@@ -266,6 +275,6 @@ public class BufferPool {
 
         // Remove the page from buffer pool
         discardPage(evictId);
-    }
 
+    }
 }
