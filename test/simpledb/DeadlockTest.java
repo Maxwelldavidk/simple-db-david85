@@ -92,7 +92,7 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
       if (!lg1Write.acquired() && lg2Write.acquired()) break;
 
       if (lg1Write.getError() != null) {
-        lg1Read.stop(); lg1Write.stop();
+        lg1Read.interrupt(); lg1Write.interrupt();
         bp.transactionComplete(tid1);
         Thread.sleep(rand.nextInt(WAIT_INTERVAL));
 
@@ -102,7 +102,7 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
       }
 
       if (lg2Write.getError() != null) {
-        lg2Read.stop(); lg2Write.stop();
+        lg2Read.interrupt(); lg2Write.interrupt();
         bp.transactionComplete(tid2);
         Thread.sleep(rand.nextInt(WAIT_INTERVAL));
 
@@ -140,7 +140,7 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
       if (!lg1Write1.acquired() && lg2Write0.acquired()) break;
 
       if (lg1Write1.getError() != null) {
-        lg1Write0.stop(); lg1Write1.stop();
+        lg1Write0.interrupt(); lg1Write1.interrupt();
         bp.transactionComplete(tid1);
         Thread.sleep(rand.nextInt(WAIT_INTERVAL));
 
@@ -150,7 +150,7 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
       }
 
       if (lg2Write0.getError() != null) {
-        lg2Write0.stop(); lg2Write1.stop();
+        lg2Write0.interrupt(); lg2Write1.interrupt();
         bp.transactionComplete(tid2);
         Thread.sleep(rand.nextInt(WAIT_INTERVAL));
 
@@ -188,7 +188,7 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
       if (!lg1Write.acquired() && lg2Write.acquired()) break;
 
       if (lg1Write.getError() != null) {
-        lg1Read.stop(); lg1Write.stop();
+        lg1Read.interrupt(); lg1Write.interrupt();
         bp.transactionComplete(tid1);
         Thread.sleep(rand.nextInt(WAIT_INTERVAL));
 
@@ -198,7 +198,7 @@ public class DeadlockTest extends TestUtil.CreateHeapFile {
       }
 
       if (lg2Write.getError() != null) {
-        lg2Read.stop(); lg2Write.stop();
+        lg2Read.interrupt(); lg2Write.interrupt();
         bp.transactionComplete(tid2);
         Thread.sleep(rand.nextInt(WAIT_INTERVAL));
 
