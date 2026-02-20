@@ -1,0 +1,14 @@
+Feedback for: david85
+--------------------------------------------------------------
+Total Score (%): 99
+Unit Test Score (out of 38): 38
+System Test Score (out of 24): 24
+Code Score (out of 10): 9
+Writeup Score (out of 10): 10
+--------------------------------------------------------------
+Writeup feedback (10/10):
+Great job!
+
+Code feedback(9/10):
+(-0) In Integer/StringAggregator, you can actually use TupleIterator instead of creating your own AggregatorIterator. 
+(-1) In the getPage() method in BufferPool.java and before adding a page to BufferPool in insertTuple or deleteTuple, make sure to check whether the buffer pool is full and needs to evict a page. Remember another transaction could evict a page and fill up the BufferPool, so you might need to evict a page before re-adding the page to the BufferPool.
