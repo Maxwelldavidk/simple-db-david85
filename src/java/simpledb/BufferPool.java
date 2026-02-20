@@ -4,6 +4,7 @@ import java.io.*;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -116,7 +117,7 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
-        lockManager.releaseAllLocks(tid);
+        transactionComplete(tid, true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
@@ -124,6 +125,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1|lab2
         return lockManager.holdingLock(tid, p);
+        
     }
 
     /**
@@ -137,6 +139,20 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        ArrayList<PageId> toFlush = new ArrayList<>();
+        for (PageId pid : pages.keySet()) {
+            Page p = pages.get(pid);
+            if (p.isDirty() != null && p.isDirty().equals(tid)) {
+                toFlush.add(pid);
+            }
+        }
+        if (commit) {
+            flushPages(tid);
+        } else {
+            for (PageId pid : toFlush) {
+                discardPage(pid);
+            }
+        }
         lockManager.releaseAllLocks(tid);
     }
 
@@ -242,6 +258,13 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        for (PageId pid : pages.keySet()) {
+            Page p = pages.get(pid);
+            if (p.isDirty() != null && p.isDirty().equals(tid)) {
+                flushPage(pid);
+            }
+        }
+
     }
 
     /**
@@ -264,7 +287,7 @@ public class BufferPool {
         }
         // If all pages are dirty, just pick the first one
         if (evictId == null) {
-            evictId = pages.keySet().iterator().next();
+            throw new DbException("All pages are dirty, cannot evict with no steal policy");
         }
         // Flush the page to disk (handles dirty pages)
         try {
@@ -275,6 +298,6 @@ public class BufferPool {
 
         // Remove the page from buffer pool
         discardPage(evictId);
-
     }
+
 }
