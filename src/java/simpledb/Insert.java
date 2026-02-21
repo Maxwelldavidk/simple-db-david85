@@ -52,10 +52,12 @@ public class Insert extends Operator {
         child.open();
         rowsAffected = 0;
         while (child.hasNext()) {
-            try{
-                Database.getBufferPool().insertTuple(transactionId, tableId,child.next());
+            try {
+                Database.getBufferPool().insertTuple(transactionId, tableId, child.next());
                 rowsAffected++;
-            } catch (Exception e){
+            } catch (TransactionAbortedException e) {
+                throw e;
+            } catch (Exception e) {
                 throw new DbException("Insert failed: " + e.getMessage());
             }
         }
