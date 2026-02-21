@@ -42,10 +42,12 @@ public class Delete extends Operator {
         child.open();
         rowsAffected = 0;
         while (child.hasNext()) {
-            try{
+            try {
                 Database.getBufferPool().deleteTuple(transactionId, child.next());
                 rowsAffected++;
-            } catch (Exception e){
+            } catch (TransactionAbortedException e) {
+                throw e;
+            } catch (Exception e) {
                 throw new DbException("Delete failed: " + e.getMessage());
             }
         }
