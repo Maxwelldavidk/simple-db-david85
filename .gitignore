@@ -1,5 +1,4 @@
-.DS_Store
-.DS_store
+Merge upstreamlabs/main into main
 .idea/
 bin/
 dist/
@@ -10,8 +9,15 @@ dist/
 vscode/
 .vscode/
 *.log
+.DS_Store
+.DS_store
 src/.DS_Store
-out/
+.idea
+bin
+dist
+out
+*.iml
 *.dat
 *.schema
 *.db
+
