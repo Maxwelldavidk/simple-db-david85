@@ -467,6 +467,46 @@ public class LogFile {
             synchronized(this) {
                 preAppend();
                 // some code goes here
+                Long firstRecord = tidToFirstLogRecord.get(tid.getId());
+                if (firstRecord == null) {
+                    throw new NoSuchElementException("Tried to rollback a transaction that was not in the log");
+                }
+                raf.seek(firstRecord);
+                Stack<Page> undoBeforeImages = new Stack<>();
+                while (true) {
+                    try {
+                        int recordType = raf.readInt();
+                        long recordTid = raf.readLong();
+
+                    if (recordType == UPDATE_RECORD) {
+                        Page before = readPageData(raf);
+                        Page after = readPageData(raf);
+                        if (recordTid == tid.getId()) {
+                            undoBeforeImages.push(before);
+                        }
+                    } else if (recordType == CHECKPOINT_RECORD) {
+                            int val = raf.readInt();
+                            for ( int i = 0; i < val; i++) {
+                                raf.readLong();
+                                raf.readLong();
+                            
+                        } 
+                    }
+                    raf.readLong(); // read past start offset
+                    } catch (EOFException e) {
+                        break;
+                    }
+                }
+                while (!undoBeforeImages.isEmpty()) {
+                    Page before = undoBeforeImages.pop();
+                    PageId pid = before.getId();
+                    DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+                    file.writePage(before);
+
+                    Database.getBufferPool().discardPage(pid);
+                }
+                raf.seek(currentOffset);
+
             }
         }
     }
