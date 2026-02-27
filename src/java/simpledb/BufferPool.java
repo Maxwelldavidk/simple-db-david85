@@ -1,10 +1,7 @@
 package simpledb;
 
 import java.io.*;
-
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -151,7 +148,12 @@ public class BufferPool {
             }
         }
         if (commit) {
-            flushPages(tid);
+            for (PageId pid : toFlush) {
+                Page p = pages.get(pid);
+                Database.getLogFile().logWrite(tid, p.getBeforeImage(), p);
+                Database.getLogFile().force();
+                p.setBeforeImage();
+            }
         } else {
             for (PageId pid : toFlush) {
                 discardPage(pid);
@@ -180,7 +182,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
 
-        HeapFile f = (HeapFile) Database.getCatalog().getDatabaseFile(tableId);
+        DbFile f = Database.getCatalog().getDatabaseFile(tableId);
         ArrayList<Page> dirty = f.insertTuple(tid, t);
 
         for (Page p : dirty) {
@@ -206,7 +208,7 @@ public class BufferPool {
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
-        HeapFile file = (HeapFile)  Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        DbFile file = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
         ArrayList<Page> dirty = file.deleteTuple(tid, t);
         for (Page p : dirty) {
             p.markDirty(true, tid);
@@ -250,10 +252,19 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         Page p = pages.get(pid);
-        if (p.isDirty() != null) {
-            HeapFile file = (HeapFile)  Database.getCatalog().getDatabaseFile(pid.getTableId());
-            p.markDirty(false, null);
+        if (p.isDirty() != null ) {
+            DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+             // append an update record to the log, with
+            // a before-image and after-image.
+            TransactionId dirtier = p.isDirty();
+            if (dirtier != null && Database.getLogFile().tidToFirstLogRecord.containsKey(dirtier.getId())) {
+                Database.getLogFile().logWrite(dirtier, p.getBeforeImage(), p);
+                Database.getLogFile().force();
+            }
+
             file.writePage(p);
+            p.markDirty(false, null);
+
         }
     }
 
@@ -289,10 +300,11 @@ public class BufferPool {
                 break;
             }
         }
-        // If all pages are dirty, just pick the first one
+        // If all pages are dirty, just pick the first one. *** changes to eviction strategy here. We now flush the dirty page before eviction.***
         if (evictId == null) {
-            throw new DbException("All pages are dirty, cannot evict with no steal policy");
+            evictId = pages.values().iterator().next().getId();
         }
+
         // Flush the page to disk (handles dirty pages)
         try {
             flushPage(evictId);
