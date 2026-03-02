@@ -534,14 +534,206 @@ public class LogFile {
             synchronized (this) {
                 recoveryUndecided = false;
                 // some code goes here
+
+            // Read checkpoint pointer (first 8 bytes of file)
+            raf.seek(0);
+            long checkpointOffset = raf.readLong();
+
+            long scanStart = (checkpointOffset == NO_CHECKPOINT_ID) ? LONG_SIZE : checkpointOffset;
+
+            Set<Long> committed = new HashSet<>();
+            Set<Long> losers = new HashSet<>();
+
+            class UpdateRec {
+                long tid;
+                Page before;
+                Page after;
+                UpdateRec(long tid, Page before, Page after) {
+                    this.tid = tid;
+                    this.before = before;
+                    this.after = after;
+                }
             }
-         }
+            ArrayList<UpdateRec> updates = new ArrayList<>();
+
+            // If there's a checkpoint, seed losers with its active txns and scan from earliest BEGIN.
+            if (checkpointOffset != NO_CHECKPOINT_ID) {
+                raf.seek(checkpointOffset);
+
+                int cpType = raf.readInt();
+                raf.readLong(); // cpTid placeholder (-1)
+                if (cpType != CHECKPOINT_RECORD) {
+                    throw new IOException("Checkpoint pointer does not point to CHECKPOINT record");
+                }
+
+                int n = raf.readInt();
+                long minFirst = checkpointOffset;
+
+                for (int i = 0; i < n; i++) {
+                    long t = raf.readLong();
+                    long first = raf.readLong();
+                    losers.add(t);
+                    tidToFirstLogRecord.put(t, first);
+                    if (first < minFirst) {
+                        minFirst = first;
+                    }
+                }
+
+                raf.readLong(); // trailing start-offset
+                scanStart = minFirst;
+            }
+
+            // Forward scan: collect updates, and determine committed vs losers.
+            raf.seek(scanStart);
+            while (true) {
+                try {
+                    long recordStart = raf.getFilePointer();
+
+                    int type = raf.readInt();
+                    long tid = raf.readLong();
+
+                    if (type == BEGIN_RECORD) {
+                        losers.add(tid);
+                        tidToFirstLogRecord.putIfAbsent(tid, recordStart);
+                        raf.readLong(); // trailer
+
+                    } else if (type == COMMIT_RECORD) {
+                        committed.add(tid);
+                        losers.remove(tid);
+                        raf.readLong(); // trailer
+
+                    } else if (type == ABORT_RECORD) {
+                        losers.remove(tid);
+                        raf.readLong(); // trailer
+
+                    } else if (type == UPDATE_RECORD) {
+                        Page before = readPageData(raf);
+                        Page after = readPageData(raf);
+                        losers.add(tid);
+                        updates.add(new UpdateRec(tid, before, after));
+                        raf.readLong(); // trailer
+
+                    } else if (type == CHECKPOINT_RECORD) {
+                        int n = raf.readInt();
+                        for (int i = 0; i < n; i++) {
+                            long t = raf.readLong();
+                            long first = raf.readLong();
+                            tidToFirstLogRecord.putIfAbsent(t, first);
+                        }
+                        raf.readLong(); // trailer
+
+                    } else {
+                        throw new IOException("Unknown log record type " + type + " at offset " + recordStart);
+                    }
+
+                } catch (EOFException eof) {
+                    break;
+                }
+            }
+
+            // Redo committed updates (physical after-image)
+            for (UpdateRec u : updates) {
+                if (committed.contains(u.tid)) {
+                    PageId pid = u.after.getId();
+                    DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+                    file.writePage(u.after);
+                    Database.getBufferPool().discardPage(pid);
+                }
+            }
+
+            // Undo loser updates (only if their after-image is currently on disk)
+            Set<PageId> protectedByCommit = new HashSet<>();
+            for (int i = updates.size() - 1; i >= 0; i--) {
+                UpdateRec u = updates.get(i);
+                PageId pid = u.before.getId();
+
+                if (committed.contains(u.tid)) {
+                    protectedByCommit.add(pid);
+                    continue;
+                }
+
+                if (losers.contains(u.tid) && !protectedByCommit.contains(pid)) {
+                    DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+                    Page onDisk = file.readPage(pid);
+                    if (Arrays.equals(onDisk.getPageData(), u.after.getPageData())) {
+                        file.writePage(u.before);
+                        Database.getBufferPool().discardPage(pid);
+                    }
+                }
+            }
+
+            raf.seek(raf.length());
+            currentOffset = raf.getFilePointer();
+
+            }
+        }
+                
+
     }
 
     /** Print out a human readable represenation of the log */
     public void print() throws IOException {
         // some code goes here
+        raf.seek(0);
+    long cp = raf.readLong();
+    System.out.println("=== LOG START ===");
+    System.out.println("checkpoint pointer = " + cp);
+
+    while (true) {
+        try {
+            long recordStart = raf.getFilePointer();
+
+            int type = raf.readInt();
+            long tid = raf.readLong();
+
+            if (type == BEGIN_RECORD) {
+                long startOffset = raf.readLong();
+                System.out.println(recordStart + ": BEGIN  tid=" + tid + " trailerStart=" + startOffset);
+
+            } else if (type == COMMIT_RECORD) {
+                long startOffset = raf.readLong();
+                System.out.println(recordStart + ": COMMIT tid=" + tid + " trailerStart=" + startOffset);
+
+            } else if (type == ABORT_RECORD) {
+                long startOffset = raf.readLong();
+                System.out.println(recordStart + ": ABORT  tid=" + tid + " trailerStart=" + startOffset);
+
+            } else if (type == UPDATE_RECORD) {
+                Page before = readPageData(raf);
+                Page after  = readPageData(raf);
+                long startOffset = raf.readLong();
+
+                System.out.println(recordStart + ": UPDATE tid=" + tid
+                        + " page=" + before.getId()
+                        + " trailerStart=" + startOffset);
+
+            } else if (type == CHECKPOINT_RECORD) {
+                int num = raf.readInt();
+                System.out.println(recordStart + ": CHECKPOINT numTxns=" + num);
+
+                for (int i = 0; i < num; i++) {
+                    long t = raf.readLong();
+                    long first = raf.readLong();
+                    System.out.println("    txn=" + t + " firstLogRecord=" + first);
+                }
+
+                long startOffset = raf.readLong();
+                System.out.println("    trailerStart=" + startOffset);
+
+            } else {
+                throw new IOException("Unknown record type " + type + " at " + recordStart);
+            }
+
+        } catch (EOFException eof) {
+            break;
+        }
     }
+
+    System.out.println("=== LOG END ===");
+
+    // restore pointer to end for safety
+    raf.seek(raf.length());
+}
 
     public  synchronized void force() throws IOException {
         raf.getChannel().force(true);

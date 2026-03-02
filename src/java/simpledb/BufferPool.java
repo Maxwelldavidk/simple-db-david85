@@ -30,6 +30,7 @@ public class BufferPool {
     // private Map<TransactionId, PageId> locks;
     private final int numOfPages;
     private final LockManager lockManager;
+    private final Map<Long, Set<PageId>> dirtiedPagesTable = new ConcurrentHashMap<>();
 
 
 
@@ -140,16 +141,14 @@ public class BufferPool {
             throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
-        ArrayList<PageId> toFlush = new ArrayList<>();
-        for (PageId pid : pages.keySet()) {
-            Page p = pages.get(pid);
-            if (p.isDirty() != null && p.isDirty().equals(tid)) {
-                toFlush.add(pid);
-            }
-        }
+        Set<PageId> toFlush =
+        dirtiedPagesTable.getOrDefault(tid.getId(), Collections.emptySet());
         if (commit) {
             for (PageId pid : toFlush) {
                 Page p = pages.get(pid);
+                if ( p == null) {
+                    continue;
+                }
                 Database.getLogFile().logWrite(tid, p.getBeforeImage(), p);
                 Database.getLogFile().force();
                 p.setBeforeImage();
@@ -159,6 +158,7 @@ public class BufferPool {
                 discardPage(pid);
             }
         }
+        dirtiedPagesTable.remove(tid.getId());
         lockManager.releaseAllLocks(tid);
     }
 
@@ -187,6 +187,7 @@ public class BufferPool {
 
         for (Page p : dirty) {
             p.markDirty(true, tid);
+            dirtiedPagesTable.computeIfAbsent(tid.getId(), k -> ConcurrentHashMap.newKeySet()).add(p.getId());
             pages.put(p.getId(), p);
         }
     }
@@ -212,6 +213,7 @@ public class BufferPool {
         ArrayList<Page> dirty = file.deleteTuple(tid, t);
         for (Page p : dirty) {
             p.markDirty(true, tid);
+            dirtiedPagesTable.computeIfAbsent(tid.getId(), k -> ConcurrentHashMap.newKeySet()).add(p.getId());
             pages.put(p.getId(), p);
         }
 
@@ -257,7 +259,8 @@ public class BufferPool {
              // append an update record to the log, with
             // a before-image and after-image.
             TransactionId dirtier = p.isDirty();
-            if (dirtier != null && Database.getLogFile().tidToFirstLogRecord.containsKey(dirtier.getId())) {
+
+            if (dirtier != null) {
                 Database.getLogFile().logWrite(dirtier, p.getBeforeImage(), p);
                 Database.getLogFile().force();
             }
