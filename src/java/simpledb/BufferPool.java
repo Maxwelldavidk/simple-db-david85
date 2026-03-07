@@ -260,7 +260,7 @@ public class BufferPool {
             // a before-image and after-image.
             TransactionId dirtier = p.isDirty();
 
-            if (dirtier != null) {
+            if (dirtier != null ) {
                 Database.getLogFile().logWrite(dirtier, p.getBeforeImage(), p);
                 Database.getLogFile().force();
             }

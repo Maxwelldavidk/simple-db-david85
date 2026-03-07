@@ -1,0 +1,19 @@
+In this lab, we implemented log-based rollback and crash recovery in SimpleDB to support atomicity and durability. The main work was in LogFile.java, where we built rollback and recovery using a write-ahead logging (WAL) approach. We also made several supporting changes to BufferPool.java.
+
+For rollback, when a transaction aborts, we scan the log starting from that transaction's first record and collect all of its update records. Each update record contains a before-image and after-image of a page. We restore the before-images in reverse order and write them back to disk, then discard the affected pages from the buffer pool so no stale copies remain in memory. Applying changes in reverse order is important because it guarantees the database returns to exactly the state it was in before the transaction started.
+
+For crash recovery, we scan the log to identify which transactions committed before the crash and which did not. For committed transactions, we redo their changes by writing the after-images to disk. For transactions that never committed, we undo their changes by restoring the before-images. This leaves the database in a consistent state where only committed changes are visible.
+
+The trickiest part was correctly enforcing the WAL rule, which requires that every log record must be written and flushed to disk before the corresponding page is written to disk. Getting the ordering right across log writes, page flushes, and transaction completion required careful attention and was easy to get subtly wrong.
+
+We also made changes to BufferPool.java to support the new logging behavior. We added a dirtiedPagesTable to track which pages each transaction modified, making it straightforward to find the relevant pages at commit or abort time.
+
+In transactionComplete, we moved away from the FORCE policy. Instead of flushing dirty pages to disk at commit time, we now write update log records for each dirtied page and force the log to disk. We also call setBeforeImage() on each page after committing so that future transactions that abort will roll back to this committed version rather than an older one.
+
+In flushPage, we added logic to write and force the log record before writing the page to disk, but only when the transaction that dirtied the page is still running. If it already committed, the log record was already written during transactionComplete, so we skip it to avoid duplicates.
+
+We also updated the eviction logic to allow dirty pages to be flushed before eviction, implementing the STEAL policy. Previously, eviction would fail if all pages were dirty. Now, a dirty page can be flushed and then evicted, which keeps the buffer pool from getting stuck.
+
+A useful unit test to add would be one that tests two interleaved transactions that both abort after modifying the same page. The existing TestAbortCommitInterleaved test only covers the case where one transaction aborts and one commits. A test where both transactions abort should verify that the page is restored to its original pre-transaction state, not just undone to the state after the first transaction's modifications. This would stress-test the before-image tracking logic and confirm that rollback handles multiple aborted transactions modifying the same page correctly.
+
+In general, this lab gave us a concrete understanding of how database systems maintain reliability through logging. The most valuable part was seeing how WAL, STEAL, and NO-FORCE work together to allow flexible buffer management without sacrificing correctness.
