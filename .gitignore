@@ -20,4 +20,4 @@ out
 *.dat
 *.schema
 *.db
-
+log
