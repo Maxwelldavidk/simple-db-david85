@@ -4,7 +4,7 @@
 
 ### Project Guidelines: This lab includes a final project report summarizing your work on SimpleDB. Instead of a separate writeup document, put your answers to the exercise questions in section 1 of the final report document. See the final project instructions [here](https://courses.cs.washington.edu/courses/cse444/26wi/content/Project.html)  for details.
 
-##### For Winter 2026: This quarter we will only require the first half of the lab 5 requirements, plus the final project report. You only need to complete the spec through the end of section 2.2.4 (and put the answers to exercises 1 through 4 in your writeup). This means you don't need to pass the QueryTest systemtest or the orderJoinsTest in JoinOptimizerTest.java. You do need to pass the rest of the unit tests described below until section 2.3.
+##### For Winter 2026: This quarter we will only require the first half of the lab 5 requirements, plus the final project report. You only need to complete the spec through the end of section 2.2.4 (and put the answers to exercises 1 through 4 in your writeup). This means you don't need to pass the QueryTest systemtest or the three tests ending with `orderJoinsTest` in JoinOptimizerTest.java. You do need to pass the rest of the unit tests described below until section 2.3.
 
 In this lab, you will implement a query optimizer on top of SimpleDB. The main tasks include implementing a selectivity estimation framework and a cost-based optimizer. You have freedom as to exactly what you implement, but we recommend using something similar to the Selinger cost-based optimizer discussed in class.
 
@@ -199,9 +199,9 @@ The class `JoinOptimizer.java` includes all of the methods for ordering and comp
 *   Implement `estimateJoinCost(LogicalJoinNode j, int card1, int card2, double cost1, double cost2)`: This method estimates the cost of join `j`, given that the left input is of cardinality `card1`, the right input of cardinality `card2`, that the cost to access the left input is `cost1`, and that the cost to access the right input is `cost2`. You can assume the join is an NL `join`, and apply the formula mentioned earlier.
 *   Implement `estimateJoinCardinality(LogicalJoinNode j, int card1, int card2, boolean t1pkey, boolean t2pkey)`: This method estimates the number of tuples output by join `j`, given that the left input is size `card1`, the right input is size `card2`, and the flags `t1pkey` and `t2pkey` that indicate whether the left and right (respectively) field is unique (a primary key).
 
-After implementing these methods, you should be able to pass the unit tests in `JoinOptimizerTest.java`, other than `orderJoinsTest`.
+After implementing these methods, you should be able to pass the unit tests in `JoinOptimizerTest.java`, other than `orderJoinsTest`, `bigOrderJoinsTest`, and `nonequalityOrderJoinsTest`.
 
-##### For spring quarter 2024, the rest of the lab from this point on is optional. Feel free to complete it, but you only need to pass the unit tests described above to get full points on the lab.
+##### For Winter quarter 2026, the rest of the lab from this point on is optional. Feel free to complete it, but you only need to pass the unit tests described above to get full points on the lab.
 
 ### 2.3 Join Ordering
 
