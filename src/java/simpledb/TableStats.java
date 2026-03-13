@@ -14,6 +14,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TableStats {
 
     private static final ConcurrentHashMap<String, TableStats> statsMap = new ConcurrentHashMap<String, TableStats>();
+    private int tableid;
+    private int ioCostPerPage;
+    private int numTuples;
+    private int numPages;
+    private TupleDesc tupleDesc;
+    private HashMap<Integer, IntHistogram> intHistograms;
+    private HashMap<Integer, StringHistogram> stringHistograms;
 
     static final int IOCOSTPERPAGE = 1000;
 
@@ -85,6 +92,80 @@ public class TableStats {
         // necessarily have to (for example) do everything
         // in a single scan of the table.
         // some code goes here
+        this.tableid = tableid;
+        this.ioCostPerPage = ioCostPerPage;
+        DbFile file = Database.getCatalog().getDatabaseFile(tableid);
+        this.tupleDesc = file.getTupleDesc();
+        this.numPages = ((HeapFile) file).numPages();
+        this.numTuples = 0;
+        this.intHistograms = new HashMap<Integer, IntHistogram>();
+        this.stringHistograms = new HashMap<Integer, StringHistogram>();
+
+        int numFields = tupleDesc.numFields();
+        int[] mins = new int[numFields];
+        int[] maxs = new int[numFields];
+
+        for (int i = 0; i < numFields; i++) {
+            if (tupleDesc.getFieldType(i) == Type.INT_TYPE) {
+                mins[i] = Integer.MAX_VALUE;
+                maxs[i] = Integer.MIN_VALUE;
+            }
+        }
+
+        TransactionId tid = new TransactionId();
+        DbFileIterator iter = file.iterator(tid);
+
+        try {
+            iter.open();
+            while (iter.hasNext()) {
+                Tuple t = iter.next();
+                numTuples++;
+
+                for (int i = 0; i < numFields; i++) {
+                    if (tupleDesc.getFieldType(i) == Type.INT_TYPE) {
+                        int val = ((IntField) t.getField(i)).getValue();
+                        if (val < mins[i]) {
+                            mins[i] = val;
+                        }
+                        if (val > maxs[i]) {
+                            maxs[i] = val;
+                        }
+                    }
+                }
+            }
+            iter.close();
+        } catch (DbException | TransactionAbortedException e) {
+            throw new RuntimeException("Error computing statistics");
+        }
+
+        for (int i = 0; i < numFields; i++) {
+            if (tupleDesc.getFieldType(i) == Type.INT_TYPE) {
+                intHistograms.put(i, new IntHistogram(NUM_HIST_BINS, mins[i], maxs[i]));
+            } else if (tupleDesc.getFieldType(i) == Type.STRING_TYPE) {
+                stringHistograms.put(i, new StringHistogram(NUM_HIST_BINS));
+            }
+        }
+
+        iter = file.iterator(tid);
+        try {
+            iter.open();
+            while (iter.hasNext()) {
+                Tuple t = iter.next();
+
+                for (int i = 0; i < numFields; i++) {
+                    if (tupleDesc.getFieldType(i) == Type.INT_TYPE) {
+                        int val = ((IntField) t.getField(i)).getValue();
+                        intHistograms.get(i).addValue(val);
+                    } else if (tupleDesc.getFieldType(i) == Type.STRING_TYPE) {
+                        String val = ((StringField) t.getField(i)).getValue();
+                        stringHistograms.get(i).addValue(val);
+                    }
+                }
+            }
+            iter.close();
+        } catch (DbException | TransactionAbortedException e) {
+            throw new RuntimeException("Error computing statistics");
+        }
     }
 
     /**
@@ -101,7 +182,7 @@ public class TableStats {
      */
     public double estimateScanCost() {
         // some code goes here
-        return 0;
+        return this.ioCostPerPage * this.numPages;
     }
 
     /**
@@ -115,7 +196,7 @@ public class TableStats {
      */
     public int estimateTableCardinality(double selectivityFactor) {
         // some code goes here
-        return 0;
+        return (int) (selectivityFactor * this.numTuples);
     }
 
     /**
@@ -130,6 +211,11 @@ public class TableStats {
      * */
     public double avgSelectivity(int field, Predicate.Op op) {
         // some code goes here
+        if (tupleDesc.getFieldType(field) == Type.INT_TYPE) {
+            return intHistograms.get(field).avgSelectivity();
+        } else if (tupleDesc.getFieldType(field) == Type.STRING_TYPE) {
+            return stringHistograms.get(field).avgSelectivity();
+        }
         return 1.0;
     }
 
@@ -148,6 +234,13 @@ public class TableStats {
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
         // some code goes here
+        if (tupleDesc.getFieldType(field) == Type.INT_TYPE) {
+            int val = ((IntField) constant).getValue();
+            return intHistograms.get(field).estimateSelectivity(op, val);
+        } else if (tupleDesc.getFieldType(field) == Type.STRING_TYPE) {
+            String val = ((StringField) constant).getValue();
+            return stringHistograms.get(field).estimateSelectivity(op, val);
+        }
         return 1.0;
     }
 
@@ -156,7 +249,7 @@ public class TableStats {
      * */
     public int totalTuples() {
         // some code goes here
-        return 0;
+        return this.numTuples;
     }
 
 }

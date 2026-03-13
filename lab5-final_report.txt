@@ -1,0 +1,20 @@
+In Step 3, simpledb.Parser.handleQueryStatement(), the parser creates a Query object for the current transaction and then begins the planning process for the SQL query. 
+It first calls parseQueryLogicalPlan(tId, s) to convert the parsed query into a LogicalPlan. After the logical plan has been created, handleQueryStatement() calls lp.physicalPlan(tId, 
+TableStats.getStatsMap(), explain) to generate the physical execution plan. It then stores both the logical plan and the physical plan inside the Query object and returns that query. 
+This is the key method in Parser.java where the query moves from a parsed SQL statement into SimpleDB’s internal planning structures.
+
+In Step 4, simpledb.Parser.parseQueryLogicalPlan(), the parser builds the LogicalPlan by translating the clauses of the SQL query into SimpleDB’s logical representation. 
+This method creates a new LogicalPlan, records the query text, and then processes the query clause by clause. It adds scans for the tables in the FROM clause, processes WHERE expressions, 
+and adds projected fields from the SELECT clause. If the query includes grouping, aggregation, or ordering, those are also added to the logical plan here. By the time this method finishes, 
+the query has been fully translated into a logical plan that describes what operations need to be performed. 
+
+
+In Step 5, control returns to handleQueryStatement(), where the parser turns the logical plan into the physical plan by calling lp.physicalPlan(). 
+This is the exact point where the executable operator tree is built. The result is an OpIterator, which is the physical plan that SimpleDB will actually run. 
+handleQueryStatement() saves that physical plan in the Query object along with the logical plan, and then returns the completed Query back to the caller. 
+
+
+In Step 6, back in simpledb.Parser.processNextStatement(), the returned Query object is executed by calling query.execute(). 
+This is the point where the finished physical plan actually runs and produces query results. If the statement was being run inside an automatically created transaction, 
+processNextStatement() then commits that transaction after execution finishes. So the final part of the query’s path through Parser.java is that processNextStatement() 
+receives the planned query, executes it, and then commits if needed.
