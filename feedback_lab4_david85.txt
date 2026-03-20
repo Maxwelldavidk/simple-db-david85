@@ -1,0 +1,13 @@
+Feedback for: david85
+--------------------------------------------------------------
+Total Score (%): 99
+Unit Test Score (out of 0): 0
+System Test Score (out of 10): 10
+Code Score (out of 10): 9
+Writeup Score (out of 10): 10
+--------------------------------------------------------------
+Writeup feedback (10/10):
+Great job!
+
+Code feedback(9/10):
+(-1) Lack of comments/did not clean up comments. Especially necessary in LogFile’s recover or rollback method
